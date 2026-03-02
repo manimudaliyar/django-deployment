@@ -27,11 +27,3 @@ pip install -r requirements.txt
 cd app
 python manage.py runserver
 ```
-
-
-## Run tests
-
-```bash
-cd app
-python manage.py test
-```
