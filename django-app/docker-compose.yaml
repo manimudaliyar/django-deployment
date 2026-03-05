@@ -1,9 +1,9 @@
-version: '3.9'
+version: '3.9' # optional since v1.27.0
 
-services:
-  web:
-    build: .
-    ports:
-      - 8000:8000
-    env_file:
+services: # Define the web service
+  web: # Build the Docker image using the Dockerfile in the current directory
+    build: . # Use the Dockerfile in the current directory to build the image
+    ports: # Map port 8000 of the container to port 8000 on the host
+      - 8000:8000 
+    env_file: # Load environment variables from the .env file
       - .env
