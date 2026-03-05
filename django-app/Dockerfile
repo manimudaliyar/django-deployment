@@ -24,7 +24,7 @@ COPY --from=builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 COPY . .
 
 # Create a non-root user to run the application
-RUN groupadd --system django && useradd --system -gid django --create-home django-user \
+RUN groupadd --system django && useradd --system --group django --create-home django-user \
     && chown -R django-user:django /app
 
 # Switch to the non-root user

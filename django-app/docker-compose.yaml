@@ -1,5 +1,3 @@
-version: '3.9' # optional since v1.27.0
-
 services: # Define the web service
   web: # Build the Docker image using the Dockerfile in the current directory
     build: . # Use the Dockerfile in the current directory to build the image
