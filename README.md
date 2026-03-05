@@ -26,6 +26,7 @@ django-app/
 │   ├── core/           # App views, tests
 │   └── manage.py
 ├── Dockerfile
+├── .dockerignore
 ├── docker-compose.yml
 └── requirements.txt
 ```
