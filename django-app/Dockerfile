@@ -23,6 +23,13 @@ COPY --from=builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 # Copy the rest of the application code into the container
 COPY . .
 
+# Create a non-root user to run the application
+RUN groupadd --system django && useradd --system -gid django --create-home django-user \
+    && chown -R django-user:django /app
+
+# Switch to the non-root user
+USER django-user
+
 # Set the working directory to the app directory
 WORKDIR /app/app
 
