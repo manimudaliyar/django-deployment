@@ -1,9 +1,9 @@
 # ALB-SG-ID output to provide the security group ID of the ALB security group
-output "ALB-SG-ID" {
-   value = aws_security_group.ALB-SG.id
+output "alb-sg-id" {
+   value = aws_security_group.alb-sg.id
 }
 
 # ECS-SG-ID output to provide the security group ID of the ECS service security group
-output "ECS-SG-ID" {
-   value = aws_security_group.ECS-SG.id
+output "ecs-sg-id" {
+   value = aws_security_group.ecs-sg.id
 }
