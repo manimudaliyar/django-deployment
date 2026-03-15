@@ -1,3 +1,5 @@
+# ECS Cluster, Task Definition, and Service for Django Application
+# ECS CloudWatch Log Group for ECS Task Logs
 resource "aws_cloudwatch_log_group" "ecs-cloudwatch-log-group" {
   name = "/aws/ecs/${var.environment}-log-group"
   retention_in_days = var.retention-in-days
@@ -9,6 +11,7 @@ resource "aws_cloudwatch_log_group" "ecs-cloudwatch-log-group" {
   )
 }
 
+# ECS Cluster for Django Application
 resource "aws_ecs_cluster" "django-ecs-cluster" {
   name = "${var.environment}-django-ecs-cluster"
   tags = merge(
@@ -19,6 +22,7 @@ resource "aws_ecs_cluster" "django-ecs-cluster" {
   )
 }
 
+# ECS Task Definition for Django Application
 resource "aws_ecs_task_definition" "django-ecs-task-definition" {
   family = "${var.environment}-django-ecs-task-definition"
   network_mode = "awsvpc"
@@ -27,6 +31,8 @@ resource "aws_ecs_task_definition" "django-ecs-task-definition" {
   memory = var.ecs-task-memory
   execution_role_arn = var.ecs-execution-role-arn
   task_role_arn = var.ecs-task-role-arn
+
+  # Define the container for the Django application
   container_definitions = jsonencode([
     {
         name = "django-container"
@@ -39,6 +45,7 @@ resource "aws_ecs_task_definition" "django-ecs-task-definition" {
             }
         ]
         
+        # Configure logging to CloudWatch Logs
         logConfiguration = {
             logDriver = "awslogs"
             options = {
@@ -51,6 +58,7 @@ resource "aws_ecs_task_definition" "django-ecs-task-definition" {
   ])
 }
 
+# ECS Service for Django Application
 resource "aws_ecs_service" "django-ecs-service" {
   name = "${var.environment}-django-ecs-service"
   cluster = aws_ecs_cluster.django-ecs-cluster.id
@@ -58,12 +66,14 @@ resource "aws_ecs_service" "django-ecs-service" {
   desired_count = var.desired-count
   launch_type = "FARGATE"
 
+# Configure the network settings for the ECS service
   network_configuration {
     security_groups = [var.ecs-sg-id]
     subnets = [var.private-subnet-1-id, var.private-subnet-2-id]
     assign_public_ip = false
   }
 
+# Configure the load balancer for the ECS service
   load_balancer {
     container_name = "django-container"
     container_port = var.container-port
