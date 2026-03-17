@@ -30,8 +30,8 @@ module "alb" {
   project-owner = var.project-owner
   vpc-id = module.vpc.vpc-id
   alb-sg-id = module.security.alb-sg-id
-  public-subnet-1 = module.vpc.public-subnet-1.id
-  public-subnet-2 = module.vpc.public-subnet-2.id
+  public-subnet-1 = module.vpc.public-subnet-1-id
+  public-subnet-2 = module.vpc.public-subnet-2-id
 }
 
 module "ecs" {

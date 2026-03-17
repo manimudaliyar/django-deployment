@@ -1,5 +1,5 @@
 vpc-cidr-block = "10.0.0.0/16"
-environment = "dev"
+environment = "Dev"
 project-owner = "Manibharati Mudaliyar"
 subnet-index-public = 1
 subnet-index-public-2 = 2
