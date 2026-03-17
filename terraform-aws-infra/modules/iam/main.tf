@@ -1,3 +1,28 @@
+# =============================================================================
+# Module: IAM
+# =============================================================================
+# This module provisions IAM roles and policies for ECS Fargate.
+#
+# Resources created:
+#   - ECS Task Execution Role — used by ECS to bootstrap the container
+#                               (pull image from ECR, create CloudWatch log streams)
+#                               Attached policy: AmazonECSTaskExecutionRolePolicy (AWS managed)
+#
+#   - ECS Task Role          — used by the Django app at runtime
+#                               (fetch secrets from Secrets Manager)
+#                               Attached policy: custom secrets-manager-policy
+#
+# Key distinction:
+#   Execution Role = ECS uses this BEFORE the container starts
+#   Task Role      = Django app uses this WHILE the container is running
+#
+# Trust policy:
+#   Both roles trust ecs-tasks.amazonaws.com to assume them via sts:AssumeRole
+#
+# Inputs:  environment, project-owner
+# Outputs: ecs-execution-role-arn, ecs-task-role-arn
+# =============================================================================
+
 # IAM roles and policies for ECS task execution and task role
 
 # Policy document for ECS task execution role trust relationship

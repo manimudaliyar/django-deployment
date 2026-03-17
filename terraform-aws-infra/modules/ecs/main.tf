@@ -1,3 +1,35 @@
+# =============================================================================
+# Module: ECS
+# =============================================================================
+# This module provisions the compute layer for the Django deployment
+# using AWS ECS Fargate.
+#
+# Resources created:
+#   - CloudWatch Log Group   — stores container logs from ECS tasks
+#                              retention configurable via variable
+#   - ECS Cluster            — logical grouping for ECS tasks and services
+#   - ECS Task Definition    — defines the container (image, CPU, memory,
+#                              port mappings, logging, IAM roles)
+#   - ECS Service            — maintains desired count of running tasks,
+#                              wires tasks to ALB target group
+#
+# Key decisions:
+#   - launch_type = "FARGATE" — serverless, no EC2 instances to manage
+#   - network_mode = "awsvpc" — each task gets its own ENI (required for Fargate)
+#   - assign_public_ip = false — tasks are in private subnets, unreachable directly
+#   - container logs ship to CloudWatch via awslogs driver
+#
+# Traffic flow:
+#   ALB Target Group → ECS Service → ECS Tasks (port 8000) → Django App
+#
+# Inputs:  environment, project-owner, aws-region, retention-in-days,
+#          ecs-task-cpu, ecs-task-memory, ecs-execution-role-arn,
+#          ecs-task-role-arn, django-container-image, container-port,
+#          desired-count, ecs-sg-id, private-subnet-1-id,
+#          private-subnet-2-id, alb-target-group-arn
+# Outputs: ecs-service-name, ecs-cluster-name
+# =============================================================================
+
 # ECS Cluster, Task Definition, and Service for Django Application
 # ECS CloudWatch Log Group for ECS Task Logs
 resource "aws_cloudwatch_log_group" "ecs-cloudwatch-log-group" {

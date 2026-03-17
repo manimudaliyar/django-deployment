@@ -1,3 +1,27 @@
+# =============================================================================
+# Module: VPC
+# =============================================================================
+# This module provisions the core networking layer for the Django deployment.
+#
+# Resources created:
+#   - VPC (10.0.0.0/16)
+#   - 2 Public Subnets (across 2 AZs) — hosts the ALB
+#   - 2 Private Subnets (across 2 AZs) — hosts ECS Fargate tasks
+#   - Internet Gateway — allows public subnets to reach the internet
+#   - 2 NAT Gateways (one per AZ) — allows private subnets to reach the internet
+#   - 2 Elastic IPs — assigned to each NAT Gateway
+#   - Public Route Table — routes 0.0.0.0/0 to the Internet Gateway
+#   - 2 Private Route Tables — routes 0.0.0.0/0 to respective NAT Gateways
+#
+# Traffic flow:
+#   Internet → IGW → ALB (public subnets)
+#                      → ECS Tasks (private subnets) via Security Groups
+#   ECS Tasks → NAT Gateway → Internet (for ECR pulls, Secrets Manager, CloudWatch)
+#
+# Outputs: vpc-id, public-subnet-1-id, public-subnet-2-id,
+#          private-subnet-1-id, private-subnet-2-id
+# =============================================================================
+
 # Main VPC for the App
 resource "aws_vpc" "main" {
   cidr_block = var.vpc-cidr-block
