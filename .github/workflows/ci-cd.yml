@@ -68,7 +68,7 @@ jobs:
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
       - name: Store image URI 
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: gh variable set DJANGO_CONTAINER_IMAGE --body "${{ env.IMAGE_URI }}"
   deploy:
     needs: build-and-push
