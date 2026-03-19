@@ -58,6 +58,7 @@ module "iam" {
   source = "./modules/iam"
   environment = var.environment
   project-owner = var.project-owner
+  github-repo = var.github-repo
 }
 
 # Mapping alb module variables to main.tf variables

@@ -7,3 +7,8 @@ output "ecs-task-role-arn" {
   value = aws_iam_role.ecs-task-role.arn
   description = "ARN of the IAM role for the ECS task role"
 }
+
+output "gha-role-arn" {
+  value = aws_iam_role.gha-oidc-role.arn
+  description = "ARN of the IAM role for GitHub Actions OIDC provider"
+}

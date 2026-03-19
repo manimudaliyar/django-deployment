@@ -83,3 +83,8 @@ variable "django-secret-key" {
   type = string
   sensitive = true
 }
+
+variable "github-repo" {
+  description = "GitHub Reposiroty name"
+  type = string
+}
