@@ -77,3 +77,9 @@ variable "desired-count" {
   description = "Number of desired tasks for the ECS service"
   type = number
 }
+
+variable "django-secret-key" {
+  description = "Django secret key"
+  type = string
+  sensitive = true
+}

@@ -90,3 +90,10 @@ module "ecs" {
   private-subnet-2-id = module.vpc.private-subnet-2-id
   alb-target-group-arn = module.alb.alb-target-group-arn
 }
+
+module "secrets" {
+  source = "./modules/secrets"
+  environment = var.environment
+  project-owner = var.project-owner
+  django-secret-key = var.django-secret-key
+}

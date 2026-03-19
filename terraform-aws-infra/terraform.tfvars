@@ -14,3 +14,4 @@ ecs-task-memory = 512
 # django-container-image = "" # Provide the ECR image URI for the Django container here, e.g., "123456789012.dkr.ecr.ap-south-1.amazonaws.com/my-django-app:latest"
 container-port = 8000
 desired-count = 1
+# django-secret-key = "" # Provide a secure random string for the Django secret key, e.g., "s3cr3t_k3y_f0r_dj4ng0"
