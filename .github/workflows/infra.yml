@@ -42,9 +42,10 @@ jobs:
 
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform plan -out=tfplan \
-              -var="django-secret-key=${{ secrets.DJANGO_SECRET_KEY}}" \
-              -var="django-container-image=${{ github.event.inputs.django-container-image || vars.DJANGO_CONTAINER_IMAGE }}"
+        run: |
+              terraform plan -out=tfplan \
+                -var="django-secret-key=${{ secrets.DJANGO_SECRET_KEY}}" \
+                -var="django-container-image=${{ github.event.inputs.django-container-image || vars.DJANGO_CONTAINER_IMAGE }}"
 
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v5
