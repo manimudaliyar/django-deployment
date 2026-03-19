@@ -58,7 +58,7 @@ data "aws_iam_policy_document" "gha-trust-policy" {
     condition {
       test = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [ var.github-repo ]
+      values = [ "repo:${var.github-repo}:*" ]
     }
   }
 }
