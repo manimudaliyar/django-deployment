@@ -15,3 +15,4 @@ ecs-task-memory = 512
 container-port = 8000
 desired-count = 1
 # django-secret-key = "" # Provide a secure random string for the Django secret key, e.g., "s3cr3t_k3y_f0r_dj4ng0"
+# Never set this here. Always pass via: terraform apply -var="django-secret-key=${{ secrets.DJANGO_SECRET_KEY }}"

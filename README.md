@@ -18,13 +18,14 @@
 Developer Push
       │
       ▼
-GitHub Actions CI
+GitHub Actions CI (django-app/** changes)
   ├── Run tests
   ├── Build Docker image (multi-stage)
-  └── Push to ECR
+  ├── Push to ECR
+  └── ECS update-service (rolling deploy)
       │
       ▼
-GitHub Actions CD (Terraform)
+GitHub Actions CD (terraform-aws-infra/** changes)
   ├── terraform plan
   └── terraform apply
       │
@@ -95,7 +96,8 @@ django-deployment/
 │   │   ├── security/       # ALB and ECS security groups
 │   │   ├── iam/            # ECS execution and task roles
 │   │   ├── alb/            # ALB, target group, listener
-│   │   └── ecs/            # ECS cluster, task definition, service
+│   │   ├── ecs/            # ECS cluster, task definition, service
+│   │   └── secrets/        # Secrets Manager secret and version
 │   ├── backend/            # S3 + DynamoDB for remote state
 │   ├── main.tf
 │   ├── variables.tf
@@ -103,7 +105,7 @@ django-deployment/
 │   └── terraform.tfvars
 └── .github/
     └── workflows/
-        ├── ci-cd.yml       # Test, build, push to ECR
+        ├── ci-cd.yml       # Test, build, push to ECR, deploy to ECS
         └── infra.yml       # Terraform plan and apply
 ```
 
@@ -128,7 +130,7 @@ Security practices:
 
 ## Terraform Infrastructure
 
-Five modules, each self-contained with its own inputs and outputs:
+Six modules, each self-contained with its own inputs and outputs:
 
 | Module | Resources |
 |---|---|
@@ -137,6 +139,7 @@ Five modules, each self-contained with its own inputs and outputs:
 | `iam` | ECS task execution role, ECS task role, Secrets Manager policy |
 | `alb` | Application Load Balancer, target group, HTTP listener |
 | `ecs` | ECS cluster, task definition, Fargate service, CloudWatch log group |
+| `secrets` | Secrets Manager secret and secret version |
 
 Remote state stored in S3 with DynamoDB state locking.
 
@@ -146,22 +149,43 @@ Remote state stored in S3 with DynamoDB state locking.
 
 > Pipeline design is complete. Full end-to-end automation is in progress.
 
-Two separate workflows:
+Two separate workflows, each triggered only when relevant files change:
 
-**`ci-cd.yml`** — triggered on push to `main`
+**`ci-cd.yml`** — triggered on push to `main` when `django-app/**` changes
 ```
-test → build → push to ECR
-```
-
-**`infra.yml`** — triggered via `workflow_dispatch`
-```
-terraform plan → (manual approval) → terraform apply
+test → build → push to ECR → ecs update-service
 ```
 
-Planned integrations:
-- OIDC authentication between GitHub Actions and AWS — no long-lived access keys
-- Image URI passed automatically from CI to Terraform at deploy time
-- Path-based triggers to run infra pipeline only on Terraform changes
+**`infra.yml`** — triggered on push to `main` when `terraform-aws-infra/**` changes
+```
+terraform plan → terraform apply
+```
+
+Key design decisions:
+- Path-based triggers — infra pipeline only runs on infra changes, app pipeline only runs on app changes
+- OIDC authentication between GitHub Actions and AWS — no long-lived access keys stored in GitHub Secrets
+- Image URI passed automatically from CI to ECS via `aws ecs update-service --force-new-deployment`
+- Terraform never needs to know the image URI for redeployments — ECS and Terraform are separate concerns
+- Secret values passed to Terraform at apply time via `-var` flag from GitHub Secrets — never stored in tfvars
+- Terraform outputs (cluster name, service name) stored as GitHub repository variables after apply — environment agnostic
+- Plan before every apply — non-negotiable
+
+---
+
+## Secrets Management
+
+Django secrets are stored in AWS Secrets Manager and fetched by ECS tasks at runtime.
+```
+GitHub Secrets (DJANGO_SECRET_KEY)
+        ↓
+-var flag at terraform apply
+        ↓
+AWS Secrets Manager
+        ↓
+ECS Task fetches at runtime via task role
+```
+
+Secret values are never stored in `tfvars` or committed to the repository.
 
 ---
 
@@ -196,7 +220,7 @@ App will be available at `http://localhost:8000`
 |---|---|---|
 | `DJANGO_SECRET_KEY` | Django secret key | `unsafe-dev-secret-key` |
 | `DJANGO_DEBUG` | Debug mode | `false` |
-| `DJANGO_ALLOWED_HOSTS` | Allowed hosts | `*` |
+| `DJANGO_ALLOWED_HOSTS`` | Allowed hosts | `*` |
 
 ---
 
