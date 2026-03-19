@@ -1,0 +1,46 @@
+name: Infrastructure
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'terraform-aws-infra/**'
+    workflow_dispatch:
+env:
+    AWS_REGION: ap-south-1
+    TF_WORKING_DIR: terraform-aws-infra
+
+jobs:
+    plan:
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v6
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v6.0.0
+              with:
+                role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+                aws-region: ${{ env.AWS_REGION }}
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v4
+              with:
+                terraform_version: "1.14.6"
+
+            - name: Terraform Init
+              working-directory: ${{ env.TF_WORKING_DIR }}
+              run: terraform init
+
+            - name: Terraform Plan
+              working-directory: ${{ env.TF_WORKING_DIR }}
+              run: terraform plan -out=tfplan
+
+            - name: Upload Terraform Plan
+              uses: actions/upload-artifact@v5
+              with:
+                name: tfplan
+                path: ${{ env.TF_WORKING_DIR }}/tfplan
