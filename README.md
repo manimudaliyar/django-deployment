@@ -14,7 +14,8 @@
 ---
 
 ## Architecture
-```
+
+```bash
 Developer Push
       │
       ▼
@@ -56,7 +57,7 @@ AWS Infrastructure
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | App | Django 5.1.1, Gunicorn |
 | Containerization | Docker (multi-stage build) |
 | Registry | AWS ECR |
@@ -72,14 +73,15 @@ AWS Infrastructure
 ## Endpoints
 
 | Endpoint | Response |
-|---|---|
+| --- | --- |
 | `/` | `{"message": "Simple Django deployment demo"}` |
 | `/health/` | `{"status": "ok"}` |
 
 ---
 
 ## Project Structure
-```
+
+```bash
 django-deployment/
 ├── django-app/
 │   ├── app/
@@ -117,12 +119,14 @@ django-deployment/
 Two stage build:
 
 | Stage | Purpose |
-|---|---|
+| --- | --- |
 | Builder | Installs Python dependencies using full base image |
 | Runtime | Copies only required artifacts into a slim image |
 
 Security practices:
+
 - Non-root user (`django-user`) via `groupadd` and `useradd`
+
 - No secrets baked into the image — injected at runtime via environment variables
 - `.dockerignore` keeps build context minimal
 - 60% smaller final image size vs single-stage build
@@ -134,7 +138,7 @@ Security practices:
 Six modules, each self-contained with its own inputs and outputs:
 
 | Module | Resources |
-|---|---|
+| --- | --- |
 | `vpc` | VPC, 2 public subnets, 2 private subnets, IGW, 2 NAT Gateways, route tables |
 | `security` | ALB security group, ECS security group |
 | `iam` | ECS task execution role, ECS task role, Secrets Manager policy |
@@ -151,16 +155,19 @@ Remote state stored in S3 with DynamoDB state locking.
 Two separate workflows, each triggered only when relevant files change:
 
 **`ci-cd.yml`** — triggered on push to `main` when `django-app/**` changes
-```
+
+```bash
 test → build → push to ECR → ecs update-service
 ```
 
 **`infra.yml`** — triggered on push to `main` when `terraform-aws-infra/**` changes
-```
+
+```bash
 terraform plan → manual approval → terraform apply
 ```
 
 Key design decisions:
+
 - Path-based triggers — infra pipeline only runs on infra changes, app pipeline only runs on app changes
 - OIDC authentication between GitHub Actions and AWS — no long-lived access keys stored in GitHub Secrets
 - Image URI passed automatically from CI to ECS via `aws ecs update-service --force-new-deployment`
@@ -174,7 +181,8 @@ Key design decisions:
 ## Secrets Management
 
 Django secrets are stored in AWS Secrets Manager and fetched by ECS tasks at runtime.
-```
+
+```bash
 GitHub Secrets (DJANGO_SECRET_KEY)
         ↓
 -var flag at terraform apply
@@ -191,7 +199,8 @@ Secret values are never stored in `tfvars` or committed to the repository.
 ## First Time Setup
 
 This project requires a one-time manual bootstrap before the pipelines can run:
-```
+
+```bash
 1. cd bootstrap/ → terraform init → terraform apply
    Copy gha-oidc-role-arn → store as GitHub variable AWS_ROLE_TO_ASSUME
 
@@ -213,6 +222,7 @@ From this point forward all deployments are automated on push.
 ---
 
 ## Run Locally (without Docker)
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -224,6 +234,7 @@ python manage.py runserver
 ---
 
 ## Run Locally (with Docker)
+
 ```bash
 # Create .env file with:
 # DJANGO_SECRET_KEY=unsafe-dev-secret-key
@@ -240,7 +251,7 @@ App will be available at `http://localhost:8000`
 ## Environment Variables
 
 | Variable | Description | Default |
-|---|---|---|
+| --- | --- | --- |
 | `DJANGO_SECRET_KEY` | Django secret key | `unsafe-dev-secret-key` |
 | `DJANGO_DEBUG` | Debug mode | `false` |
 | `DJANGO_ALLOWED_HOSTS` | Allowed hosts | `*` |
