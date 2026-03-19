@@ -27,7 +27,7 @@ GitHub Actions CI (django-app/** changes)
       ▼
 GitHub Actions CD (terraform-aws-infra/** changes)
   ├── terraform plan
-  └── terraform apply
+  └── terraform apply (manual approval required)
       │
       ▼
 AWS Infrastructure
@@ -91,6 +91,8 @@ django-deployment/
 │   ├── docker-compose.yml
 │   └── requirements.txt
 ├── terraform-aws-infra/
+│   ├── bootstrap/          # OIDC provider and GHA role — apply once, never destroy
+│   ├── backend/            # S3 + DynamoDB for remote state — apply once, never destroy
 │   ├── modules/
 │   │   ├── vpc/            # VPC, subnets, IGW, NAT Gateways
 │   │   ├── security/       # ALB and ECS security groups
@@ -98,7 +100,6 @@ django-deployment/
 │   │   ├── alb/            # ALB, target group, listener
 │   │   ├── ecs/            # ECS cluster, task definition, service
 │   │   └── secrets/        # Secrets Manager secret and version
-│   ├── backend/            # S3 + DynamoDB for remote state
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── backend.tf
@@ -147,8 +148,6 @@ Remote state stored in S3 with DynamoDB state locking.
 
 ## CI/CD Pipeline
 
-> Pipeline design is complete. Full end-to-end automation is in progress.
-
 Two separate workflows, each triggered only when relevant files change:
 
 **`ci-cd.yml`** — triggered on push to `main` when `django-app/**` changes
@@ -158,7 +157,7 @@ test → build → push to ECR → ecs update-service
 
 **`infra.yml`** — triggered on push to `main` when `terraform-aws-infra/**` changes
 ```
-terraform plan → terraform apply
+terraform plan → manual approval → terraform apply
 ```
 
 Key design decisions:
@@ -167,7 +166,7 @@ Key design decisions:
 - Image URI passed automatically from CI to ECS via `aws ecs update-service --force-new-deployment`
 - Terraform never needs to know the image URI for redeployments — ECS and Terraform are separate concerns
 - Secret values passed to Terraform at apply time via `-var` flag from GitHub Secrets — never stored in tfvars
-- Terraform outputs (cluster name, service name) stored as GitHub repository variables after apply — environment agnostic
+- Terraform outputs (cluster name, service name) stored as GitHub repository variables after apply
 - Plan before every apply — non-negotiable
 
 ---
@@ -186,6 +185,30 @@ ECS Task fetches at runtime via task role
 ```
 
 Secret values are never stored in `tfvars` or committed to the repository.
+
+---
+
+## First Time Setup
+
+This project requires a one-time manual bootstrap before the pipelines can run:
+```
+1. cd bootstrap/ → terraform init → terraform apply
+   Copy gha-oidc-role-arn → store as GitHub variable AWS_ROLE_TO_ASSUME
+
+2. cd backend/ → terraform init → terraform apply
+   Creates S3 bucket and DynamoDB table for remote state
+
+3. Trigger ci-cd.yml manually via workflow_dispatch (deploy: false)
+   Builds and pushes image to ECR without deploying
+
+4. Trigger infra.yml manually via workflow_dispatch
+   Provide the ECR image URI from step 3 as input
+
+5. Approve the apply in GitHub Environments → production
+   Infrastructure is provisioned, app is live
+```
+
+From this point forward all deployments are automated on push.
 
 ---
 
@@ -220,7 +243,7 @@ App will be available at `http://localhost:8000`
 |---|---|---|
 | `DJANGO_SECRET_KEY` | Django secret key | `unsafe-dev-secret-key` |
 | `DJANGO_DEBUG` | Debug mode | `false` |
-| `DJANGO_ALLOWED_HOSTS`` | Allowed hosts | `*` |
+| `DJANGO_ALLOWED_HOSTS` | Allowed hosts | `*` |
 
 ---
 

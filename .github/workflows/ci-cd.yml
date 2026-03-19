@@ -1,23 +1,59 @@
+# =============================================================================
+# Workflow: CI-CD
+# =============================================================================
+# Builds, tests, and deploys the Django application to AWS ECS Fargate.
+#
+# Triggers:
+#   - Push to main when django-app/** files change
+#   - Manual workflow_dispatch (with optional deploy toggle)
+#
+# Jobs:
+#   test           → sets up Python, installs dependencies, runs Django tests
+#   build-and-push → authenticates with AWS via OIDC, builds multi-stage
+#                    Docker image, pushes to ECR, stores image URI as
+#                    repository variable
+#   deploy         → runs aws ecs update-service --force-new-deployment
+#                    skipped on manual dispatch unless deploy input is true
+#
+# Authentication:
+#   GitHub Actions assumes the GHA OIDC role via OpenID Connect.
+#   No long-lived AWS credentials stored in GitHub Secrets.
+#
+# Secrets required:
+#   - GH_PAT — Personal access token for setting repo variables
+#
+# Variables required:
+#   - AWS_ROLE_TO_ASSUME  — ARN of the GHA OIDC role (set after bootstrap)
+#   - ECS_CLUSTER_NAME    — ECS cluster name (set by infra.yml after apply)
+#   - ECS_SERVICE_NAME    — ECS service name (set by infra.yml after apply)
+#
+# Note:
+#   On first run, trigger via workflow_dispatch with deploy set to false.
+#   This builds and pushes the image to ECR without attempting to deploy
+#   to ECS which does not exist yet. Run infra.yml after to provision
+#   infrastructure with the new image URI.
+# =============================================================================
+
 name: CI-CD
 on:
   push:
     branches:
       - main
     paths:
-      - 'django-app/**'
+      - 'django-app/**' # Trigger only when changes are made to the Django application code
   workflow_dispatch:
-    inputs:
+    inputs: # Allow manual triggering of the workflow with an optional boolean input to control whether the deploy job should run
       deploy:
         description: 'Run deploy job'
-        required: false
+        required: false # This input is optional; if not provided, the workflow will default to not running the deploy job
         default: false
         type: boolean
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: django-app-deployment
-  WORKING_DIR: django-app
-  APP_DIR: django-app/app
+  ECR_REPOSITORY: django-app-deployment # Name of the ECR repository where the Docker image will be pushed
+  WORKING_DIR: django-app # Directory containing the Django application code, used for running tests and building the Docker image
+  APP_DIR: django-app/app # Directory containing the Django application code, used for running tests and building the Docker image
 
 jobs:
   test:
@@ -26,10 +62,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
       - name: Set up Python
+        # Set up Python with a specific version for consistency across runs, ensuring that the same Python environment is used for testing and building the application
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Cache dependencies
+        # Cache pip dependencies to speed up subsequent runs of the workflow, using a key based on the hash of the requirements.txt file to ensure that the 
+        #cache is updated when dependencies change
         uses: actions/cache@v5
         id: cache-pip
         with:
@@ -57,21 +96,29 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Login to Amazon ECR
+        # Use the Amazon ECR login action to authenticate Docker with the ECR registry, allowing subsequent steps to push the built Docker image to the specified ECR repository
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       - name: Build and push Docker image
         env:
           IMAGE_URI: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          # Use the GitHub SHA as the tag for the Docker image to ensure that each build is uniquely 
+          #identifiable and traceable back to the specific commit that triggered the workflow
         run: |
           docker build -t $IMAGE_URI ${{ env.WORKING_DIR }}
           docker push $IMAGE_URI
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV 
+        # Set the IMAGE_URI as an environment variable for use in subsequent jobs, allowing the deploy job to reference the exact image that was built and pushed in this step
       - name: Store image URI 
+        # After pushing the Docker image to ECR, store the image URI as a GitHub repository variable using the GitHub CLI,
+        # enabling other workflows or jobs to access this information for deployment or monitoring purposes
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: gh variable set DJANGO_CONTAINER_IMAGE --body "${{ env.IMAGE_URI }}"
   deploy:
     needs: build-and-push
+    # The deploy job is conditionally executed based on the event that triggered the workflow and the value of the 'deploy' input, 
+    #allowing for flexible deployment strategies where deployments can be automatically triggered on pushes to the main branch or manually triggered with a specific input
     if: github.event_name == 'push' || inputs.deploy == true
     runs-on: ubuntu-latest
     permissions:
@@ -84,4 +131,6 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
       - name: AWS ECS update-service
+        # Use the AWS CLI to force a new deployment of the ECS service, which will pull the latest Docker image from ECR and update the running tasks with the new image,
+        #ensuring that the latest version of the application is deployed to the ECS cluster after a successful build and push of the Docker image
         run: aws ecs update-service --cluster ${{ vars.ECS_CLUSTER_NAME }} --service ${{ vars.ECS_SERVICE_NAME }} --force-new-deployment

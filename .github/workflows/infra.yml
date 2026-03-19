@@ -1,15 +1,49 @@
+# =============================================================================
+# Workflow: Infrastructure
+# =============================================================================
+# Provisions the complete AWS infrastructure for the Django deployment
+# using Terraform.
+#
+# Triggers:
+#   - Push to main when terraform-aws-infra/** files change
+#   - Manual workflow_dispatch (with optional ECR image URI input)
+#
+# Jobs:
+#   plan  → initializes Terraform, runs plan, uploads plan artifact
+#   apply → requires manual approval via GitHub environment protection,
+#            downloads plan artifact, applies, stores ECS outputs as
+#            repository variables
+#
+# Authentication:
+#   GitHub Actions assumes the GHA OIDC role via OpenID Connect.
+#   No long-lived AWS credentials stored in GitHub Secrets.
+#
+# Secrets required:
+#   - DJANGO_SECRET_KEY — Django application secret key
+#   - GH_PAT            — Personal access token for setting repo variables
+#
+# Variables required:
+#   - AWS_ROLE_TO_ASSUME      — ARN of the GHA OIDC role (set after bootstrap)
+#   - DJANGO_CONTAINER_IMAGE  — ECR image URI (fallback when not using dispatch input)
+#
+# Note:
+#   On first run, trigger via workflow_dispatch and provide the ECR image URI
+#   manually. On subsequent runs triggered by push, DJANGO_CONTAINER_IMAGE
+#   repository variable is used as fallback.
+# =============================================================================
+
 name: Infrastructure
 on:
   push:
     branches:
       - main
     paths:
-      - 'terraform-aws-infra/**'
+      - 'terraform-aws-infra/**' # Trigger only when changes are made to the Terraform infrastructure code
   workflow_dispatch:
-    inputs:
+    inputs: # Allow manual triggering of the workflow with optional input for the Django container image URI
       django-container-image:
         description: 'ECR image URI for the Django application (e.g., 123456789012.dkr.ecr.ap-south-1.amazonaws.com/my-django-app:latest)'
-        required: false
+        required: false # This input is optional; if not provided, the workflow will use a default value from repository variables
 
 env:
   AWS_REGION: ap-south-1
@@ -28,40 +62,45 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }} # Use repository variable for the AWS role to assume
+          aws-region: ${{ env.AWS_REGION }} 
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@v4 # Set up Terraform with a specific version for consistency across runs
         with:
           terraform_version: "1.14.6"
 
       - name: Terraform Init
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: ${{ env.TF_WORKING_DIR }} # Initialize Terraform in the specified working directory to prepare for planning and applying infrastructure changes
         run: terraform init
 
       - name: Terraform Plan
         working-directory: ${{ env.TF_WORKING_DIR }}
+        # Run Terraform plan with variables for the Django secret key and container image URI, 
+        #allowing for dynamic input of the container image during manual workflow dispatch or using a default value from repository variables
         run: |
               terraform plan -out=tfplan \
                 -var="django-secret-key=${{ secrets.DJANGO_SECRET_KEY}}" \
                 -var="django-container-image=${{ github.event.inputs.django-container-image || vars.DJANGO_CONTAINER_IMAGE }}"
 
-      - name: Upload Terraform Plan
+      - name: Upload Terraform Plan 
+        # Upload the generated Terraform plan as an artifact to be used in the apply job, 
+        #ensuring that the exact plan generated during this run is applied in the next step
         uses: actions/upload-artifact@v5
         with:
           name: tfplan
-          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan # Upload the Terraform plan file from the working directory to be used in the apply job
 
   apply:
     runs-on: ubuntu-latest
     needs: plan
-    environment: production
+    environment: production # Set the environment to production for this job, which can be used for environment-specific configurations and secrets
     permissions:
       id-token: write
       contents: read
     env:
-      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_TOKEN: ${{ secrets.GH_PAT }} 
+      # Use a GitHub Personal Access Token stored in secrets to authenticate with the GitHub CLI for setting repository variables after applying infrastructure changes
     steps:
         - name: Checkout code
           uses: actions/checkout@v6
@@ -69,7 +108,8 @@ jobs:
         - name: Configure AWS credentials
           uses: aws-actions/configure-aws-credentials@v6.0.0
           with:
-            role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+            # Use the same AWS credentials configuration as in the plan job to ensure that the apply job has the necessary permissions to make changes to the infrastructure
+            role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }} 
             aws-region: ${{ env.AWS_REGION }}
 
         - name: Setup Terraform
@@ -89,14 +129,19 @@ jobs:
 
         - name: Terraform Apply
           working-directory: ${{ env.TF_WORKING_DIR }}
+          # Apply the Terraform plan that was generated in the previous job, ensuring that the exact changes that were planned are executed against the infrastructure
           run: terraform apply tfplan
 
         - name: Store ECS Cluster Name
           working-directory: ${{ env.TF_WORKING_DIR }}
+          # After applying the infrastructure changes, retrieve the ECS cluster name from Terraform outputs and store it as a GitHub repository variable using the GitHub CLI, 
+          #allowing other workflows or jobs to access this information for deployment or monitoring purposes
           run: |
             gh variable set ECS_CLUSTER_NAME --body "$(terraform output -raw ecs-cluster-name)"
 
         - name: Store ECS Service Name
           working-directory: ${{ env.TF_WORKING_DIR }}
+          # Similarly, retrieve the ECS service name from Terraform outputs and store it as a GitHub repository variable, 
+          # enabling seamless integration with deployment workflows that need to reference the ECS service for updates or rollouts
           run: |
             gh variable set ECS_SERVICE_NAME --body "$(terraform output -raw ecs-service-name)"
