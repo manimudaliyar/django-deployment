@@ -1,46 +1,101 @@
 name: Infrastructure
 on:
-    push:
-        branches:
-            - main
-        paths:
-            - 'terraform-aws-infra/**'
-    workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform-aws-infra/**'
+  workflow_dispatch:
+    inputs:
+      django-container-image:
+        description: 'ECR image URI for the Django application (e.g., 123456789012.dkr.ecr.ap-south-1.amazonaws.com/my-django-app:latest)'
+        required: false
+
 env:
-    AWS_REGION: ap-south-1
-    TF_WORKING_DIR: terraform-aws-infra
+  AWS_REGION: ap-south-1
+  TF_WORKING_DIR: terraform-aws-infra
 
 jobs:
-    plan:
-        runs-on: ubuntu-latest
-        permissions:
-            id-token: write
-            contents: read
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v6
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+        id-token: write
+        contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-            - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v6.0.0
-              with:
-                role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
-                aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v4
-              with:
-                terraform_version: "1.14.6"
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.6"
 
-            - name: Terraform Init
-              working-directory: ${{ env.TF_WORKING_DIR }}
-              run: terraform init
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
 
-            - name: Terraform Plan
-              working-directory: ${{ env.TF_WORKING_DIR }}
-              run: terraform plan -out=tfplan
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -out=tfplan \
+            -var="django-secret-key=${{ secrets.DJANGO_SECRET_KEY}}" \
+            -var="django-container-image=${{ github.event.inputs.django-container-image || vars.DJANGO_CONTAINER_IMAGE }}"
 
-            - name: Upload Terraform Plan
-              uses: actions/upload-artifact@v5
-              with:
-                name: tfplan
-                path: ${{ env.TF_WORKING_DIR }}/tfplan
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v5
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+
+  apply:
+    runs-on: ubuntu-latest
+    needs: plan
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+        - name: Checkout code
+          uses: actions/checkout@v6
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v6.0.0
+          with:
+            role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+            aws-region: ${{ env.AWS_REGION }}
+
+        - name: Setup Terraform
+          uses: hashicorp/setup-terraform@v4
+          with:
+            terraform_version: "1.14.6"
+
+        - name: Terraform Init
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          run: terraform init
+
+        - name: Download Terraform Plan
+          uses: actions/download-artifact@v5
+          with:
+            name: tfplan
+            path: ${{ env.TF_WORKING_DIR }}
+
+        - name: Terraform Apply
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          run: terraform apply tfplan
+
+        - name: Store ECS Cluster Name
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          run: |
+            gh variable set ECS_CLUSTER_NAME --body "$(terraform output -raw ecs-cluster-name)"
+
+        - name: Store ECS Service Name
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          run: |
+            gh variable set ECS_SERVICE_NAME --body "$(terraform output -raw ecs-service-name)"
