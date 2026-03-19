@@ -84,9 +84,4 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
       - name: AWS ECS update-service
-        run: |
-          aws ecs update-service \
-            --cluster ${{ vars.ECS_CLUSTER_NAME }} \
-            --service ${{ vars.ECS_SERVICE_NAME }} \
-            --force-new-deployment
-            
+        run: aws ecs update-service --cluster ${{ vars.ECS_CLUSTER_NAME }} --service ${{ vars.ECS_SERVICE_NAME }} --force-new-deployment
