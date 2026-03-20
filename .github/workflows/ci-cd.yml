@@ -135,6 +135,8 @@ jobs:
         # ensuring that the correct Docker image is referenced when updating the ECS task definition
         run: echo "IMAGE_URI=${{ vars.DJANGO_CONTAINER_IMAGE }}" >> $GITHUB_ENV
       - name: Update ECS task definition
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         # Use the AWS CLI to describe the existing ECS task definition, modify the container image to point to the newly built image, 
         # and register a new task definition with the updated configuration, ensuring that the ECS service can be updated to use the latest Docker image for deployment
         run: |
