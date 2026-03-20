@@ -144,4 +144,4 @@ jobs:
           # Similarly, retrieve the ECS service name from Terraform outputs and store it as a GitHub repository variable, 
           # enabling seamless integration with deployment workflows that need to reference the ECS service for updates or rollouts
           run: |
-            gh variable set ECS_SERVICE_NAME --body "$(terraform output -raw -no-colorecs-service-name)"
+            gh variable set ECS_SERVICE_NAME --body "$(terraform output -raw -no-color ecs-service-name)"
