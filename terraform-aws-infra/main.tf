@@ -89,6 +89,7 @@ module "ecs" {
   private-subnet-1-id = module.vpc.private-subnet-1-id
   private-subnet-2-id = module.vpc.private-subnet-2-id
   alb-target-group-arn = module.alb.alb-target-group-arn
+  django-secret-arn = module.secrets.django-secret-arn
 }
 
 module "secrets" {

@@ -86,6 +86,14 @@ resource "aws_ecs_task_definition" "django-ecs-task-definition" {
                 awslogs-stream-prefix = "ecs"
             }
         }
+
+        # Configure secrets for the container
+        secrets = [
+          {
+            name = "DJANGO_SECRET_KEY"
+            valueFrom = var.django-secret-arn
+          }
+        ]
     }
   ])
 }

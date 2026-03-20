@@ -72,3 +72,8 @@ variable "alb-target-group-arn" {
   description = "ARN of the ALB target group to associate with the ECS service"
   type = string
 }
+
+variable "django-secret-arn" {
+  description = "ARN of the secret in AWS Secrets Manager that contains the Django secret key"
+  type = string
+}

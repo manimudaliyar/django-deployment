@@ -10,9 +10,10 @@
 # Jobs:
 #   test           → sets up Python, installs dependencies, runs Django tests
 #   build-and-push → authenticates with AWS via OIDC, builds multi-stage
-#                    Docker image, pushes to ECR, stores image URI as
-#                    repository variable
-#   deploy         → runs aws ecs update-service --force-new-deployment
+#                    Docker image tagged with github.sha, pushes to ECR,
+#                    stores image URI as job output and repository variable
+#   deploy         → registers new ECS task definition revision with updated
+#                    image URI, runs aws ecs update-service for rolling deploy
 #                    skipped on manual dispatch unless deploy input is true
 #
 # Authentication:
@@ -23,9 +24,15 @@
 #   - GH_PAT — Personal access token for setting repo variables
 #
 # Variables required:
-#   - AWS_ROLE_TO_ASSUME  — ARN of the GHA OIDC role (set after bootstrap)
-#   - ECS_CLUSTER_NAME    — ECS cluster name (set by infra.yml after apply)
-#   - ECS_SERVICE_NAME    — ECS service name (set by infra.yml after apply)
+#   - AWS_ROLE_TO_ASSUME     — ARN of the GHA OIDC role (set after bootstrap)
+#   - ECS_CLUSTER_NAME       — ECS cluster name (set by infra.yml after apply)
+#   - ECS_SERVICE_NAME       — ECS service name (set by infra.yml after apply)
+#   - ECS_TASK_DEFINITION    — ECS task definition family (set by infra.yml after apply)
+#   - DJANGO_CONTAINER_IMAGE — latest ECR image URI (updated after every successful push)
+#
+# Image URI flow:
+#   build-and-push sets image URI as job output → deploy reads from job output
+#   ensuring the exact image just built is always deployed, not a cached value
 #
 # Note:
 #   On first run, trigger via workflow_dispatch with deploy set to false.

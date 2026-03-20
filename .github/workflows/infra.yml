@@ -9,10 +9,11 @@
 #   - Manual workflow_dispatch (with optional ECR image URI input)
 #
 # Jobs:
-#   plan  → initializes Terraform, runs plan, uploads plan artifact
+#   plan  → initializes Terraform, runs plan with secret and image vars,
+#            uploads plan artifact for apply job
 #   apply → requires manual approval via GitHub environment protection,
-#            downloads plan artifact, applies, stores ECS outputs as
-#            repository variables
+#            downloads plan artifact, applies, stores ECS cluster name,
+#            service name, task definition family, and prints ALB DNS name
 #
 # Authentication:
 #   GitHub Actions assumes the GHA OIDC role via OpenID Connect.
@@ -23,13 +24,19 @@
 #   - GH_PAT            — Personal access token for setting repo variables
 #
 # Variables required:
-#   - AWS_ROLE_TO_ASSUME      — ARN of the GHA OIDC role (set after bootstrap)
-#   - DJANGO_CONTAINER_IMAGE  — ECR image URI (fallback when not using dispatch input)
+#   - AWS_ROLE_TO_ASSUME     — ARN of the GHA OIDC role (set after bootstrap)
+#   - DJANGO_CONTAINER_IMAGE — ECR image URI (fallback when not using dispatch input)
+#
+# Outputs stored as repository variables after apply:
+#   - ECS_CLUSTER_NAME      — used by ci-cd.yml for ECS deployments
+#   - ECS_SERVICE_NAME      — used by ci-cd.yml for ECS deployments
+#   - ECS_TASK_DEFINITION   — used by ci-cd.yml for task definition updates
 #
 # Note:
 #   On first run, trigger via workflow_dispatch and provide the ECR image URI
-#   manually. On subsequent runs triggered by push, DJANGO_CONTAINER_IMAGE
+#   manually. On subsequent push-triggered runs, DJANGO_CONTAINER_IMAGE
 #   repository variable is used as fallback.
+#   ALB DNS name is printed to workflow logs after every successful apply.
 # =============================================================================
 
 name: Infrastructure
