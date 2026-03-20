@@ -153,3 +153,11 @@ jobs:
             then
                gh variable set ECS_SERVICE_NAME --body "$VALUE"
             fi
+          
+        - name: Print ALB DNS Name
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          # For informational purposes, print the ALB DNS name to the workflow logs by retrieving it from Terraform outputs,
+          # allowing developers to easily access the URL of the deployed application after infrastructure changes are applied
+          run: |
+            VALUE=$(terraform output -raw -no-color alb-dns-name 2>/dev/null)
+            echo "ALB DNS Name: $VALUE"
