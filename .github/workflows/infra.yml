@@ -134,14 +134,22 @@ jobs:
 
         - name: Store ECS Cluster Name
           working-directory: ${{ env.TF_WORKING_DIR }}
-          # After applying the infrastructure changes, retrieve the ECS cluster name from Terraform outputs and store it as a GitHub repository variable using the GitHub CLI, 
-          #allowing other workflows or jobs to access this information for deployment or monitoring purposes
+          # After applying the infrastructure changes, retrieve the ECS cluster name from Terraform outputs and 
+          # store it as a GitHub repository variable using the GitHub CLI, enabling other workflows or jobs to access this information for deployment or monitoring purposes
           run: |
-            gh variable set ECS_CLUSTER_NAME --body "$(terraform output -raw -no-color ecs-cluster-name)"
+            VALUE=$(terraform output -raw -no-color ecs-cluster-name 2>/dev/null)
+            if [ -n "$VALUE" ];
+            then
+              gh variable set ECS_CLUSTER_NAME --body "$VALUE"
+            fi
 
         - name: Store ECS Service Name
           working-directory: ${{ env.TF_WORKING_DIR }}
           # Similarly, retrieve the ECS service name from Terraform outputs and store it as a GitHub repository variable, 
-          # enabling seamless integration with deployment workflows that need to reference the ECS service for updates or rollouts
+          # llowing for dynamic referencing of the service in other parts of the CI/CD pipeline or monitoring setups
           run: |
-            gh variable set ECS_SERVICE_NAME --body "$(terraform output -raw -no-color ecs-service-name)"
+            VALUE=$(terraform output -raw -no-color ecs-service-name 2>/dev/null)
+            if [ -n "$VALUE" ];
+            then
+               gh variable set ECS_SERVICE_NAME --body "$VALUE"
+            fi
