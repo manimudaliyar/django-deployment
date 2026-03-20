@@ -153,7 +153,20 @@ jobs:
             then
                gh variable set ECS_SERVICE_NAME --body "$VALUE"
             fi
-          
+
+        - name: Store ECS Task Definition Family
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          # Retrieve the ECS task definition family from Terraform outputs and store it as a GitHub repository variable,
+          # allowing for dynamic referencing of the task definition in deployment scripts or monitoring tools that need to know which task definition family is being used
+          # Also allows to change the task definition family when infrastructure changes are applied, ensuring that the latest task definition family is always available 
+          # as a variable for other workflows or jobs   
+          run: |
+            VALUE=$(terraform output -raw -no-color ecs-task-definition-family 2>/dev/null)
+            if [ -n "$VALUE" ];
+            then
+              gh variable set ECS_TASK_DEFINITION --body "$VALUE"
+            fi
+
         - name: Print ALB DNS Name
           working-directory: ${{ env.TF_WORKING_DIR }}
           # For informational purposes, print the ALB DNS name to the workflow logs by retrieving it from Terraform outputs,

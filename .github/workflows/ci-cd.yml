@@ -130,7 +130,23 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Set Image URI from variable
+        # Retrieve the image URI stored as a GitHub repository variable in the previous job and set it as an environment variable for use in the deployment steps, 
+        # ensuring that the correct Docker image is referenced when updating the ECS task definition
+        run: echo "IMAGE_URI=${{ vars.DJANGO_CONTAINER_IMAGE }}" >> $GITHUB_ENV
+      - name: Update ECS task definition
+        # Use the AWS CLI to describe the existing ECS task definition, modify the container image to point to the newly built image, 
+        # and register a new task definition with the updated configuration, ensuring that the ECS service can be updated to use the latest Docker image for deployment
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition ${{ vars.ECS_TASK_DEFINITION }} \
+            --query taskDefinition)
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+            --arg IMAGE "${{ env.IMAGE_URI }}" \
+            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .deregisteredAt)')
+          aws ecs register-task-definition --cli-input-json "$NEW_TASK_DEF"
+
       - name: AWS ECS update-service
         # Use the AWS CLI to force a new deployment of the ECS service, which will pull the latest Docker image from ECR and update the running tasks with the new image,
         #ensuring that the latest version of the application is deployed to the ECS cluster after a successful build and push of the Docker image
-        run: aws ecs update-service --cluster ${{ vars.ECS_CLUSTER_NAME }} --service ${{ vars.ECS_SERVICE_NAME }} --force-new-deployment
+        run: aws ecs update-service --cluster ${{ vars.ECS_CLUSTER_NAME }} --service ${{ vars.ECS_SERVICE_NAME }} --task-definition ${{ vars.ECS_TASK_DEFINITION }} --force-new-deployment

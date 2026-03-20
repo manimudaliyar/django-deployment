@@ -9,3 +9,7 @@ output "ecs-service-name" {
 output "alb-dns-name" {
   value = module.alb.alb-dns-name
 }
+
+output "ecs-task-definition-family" {
+  value = module.ecs.ecs-task-definition-family
+}
