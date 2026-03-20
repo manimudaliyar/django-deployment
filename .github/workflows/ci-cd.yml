@@ -143,9 +143,7 @@ jobs:
           TASK_DEF=$(aws ecs describe-task-definition \
             --task-definition ${{ vars.ECS_TASK_DEFINITION }} \
             --query taskDefinition)
-          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
-            --arg IMAGE "${{ env.IMAGE_URI }}" \
-            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .deregisteredAt)')
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "${{ env.IMAGE_URI }}" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .deregisteredAt, .registeredBy, .deregisteredBy, .volumes, .placementConstraints)')
           aws ecs register-task-definition --cli-input-json "$NEW_TASK_DEF"
 
       - name: AWS ECS update-service
