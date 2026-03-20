@@ -27,6 +27,7 @@
 # Secrets Manager Secret for ECS Task 
 resource "aws_secretsmanager_secret" "django-ecs-secret" {
   name = "${var.environment}-django-ecs-secret"
+  recovery_window_in_days = 0 # Immediate deletion, no recovery window
   tags = merge(
     local.common_tags,
     {
