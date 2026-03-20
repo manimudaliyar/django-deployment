@@ -87,6 +87,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    outputs:
+      image-uri: ${{ steps.set-image-uri.outputs.image-uri }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -100,6 +102,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       - name: Build and push Docker image
+        id: set-image-uri
         env:
           IMAGE_URI: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           # Use the GitHub SHA as the tag for the Docker image to ensure that each build is uniquely 
@@ -107,6 +110,7 @@ jobs:
         run: |
           docker build -t $IMAGE_URI ${{ env.WORKING_DIR }}
           docker push $IMAGE_URI
+          echo "image-uri=$IMAGE_URI" >> $GITHUB_OUTPUT 
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV 
         # Set the IMAGE_URI as an environment variable for use in subsequent jobs, allowing the deploy job to reference the exact image that was built and pushed in this step
       - name: Store image URI 
@@ -130,10 +134,10 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Set Image URI from variable
+      - name: Set Image URI from output
         # Retrieve the image URI stored as a GitHub repository variable in the previous job and set it as an environment variable for use in the deployment steps, 
         # ensuring that the correct Docker image is referenced when updating the ECS task definition
-        run: echo "IMAGE_URI=${{ vars.DJANGO_CONTAINER_IMAGE }}" >> $GITHUB_ENV
+        run: echo "IMAGE_URI=${{ needs.build-and-push.outputs.image-uri }}" >> $GITHUB_ENV
       - name: Update ECS task definition
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
