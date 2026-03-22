@@ -1,3 +1,25 @@
+# =============================================================================
+# Docker Compose: Django Application (Local Development)
+# =============================================================================
+# Builds and runs the Django application locally using the Dockerfile.
+#
+# Usage:
+#   Create a .env file with the following variables before running:
+#     DJANGO_SECRET_KEY=unsafe-dev-secret-key
+#     DJANGO_DEBUG=false
+#     DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+#
+#   Then run:
+#     docker compose up --build
+#
+# App will be available at http://localhost:8000
+#
+# Note:
+#   This compose file is for local development only.
+#   Production deployment is handled via AWS ECS Fargate
+#   provisioned through Terraform and GitHub Actions.
+# =============================================================================
+
 services: # Define the web service
   web: # Build the Docker image using the Dockerfile in the current directory
     build: . # Use the Dockerfile in the current directory to build the image

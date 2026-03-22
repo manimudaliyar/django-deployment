@@ -1,3 +1,27 @@
+# =============================================================================
+# Dockerfile: Django Application
+# =============================================================================
+# Multi-stage build to produce a minimal, secure production image.
+#
+# Stage 1 — builder:
+#   Uses full Python 3.10 base image to install dependencies.
+#   Heavy build tools stay in this stage and never reach production.
+#
+# Stage 2 — runtime:
+#   Uses python:3.10-slim for a minimal final image (~60% smaller).
+#   Copies only installed packages and the gunicorn binary from builder.
+#   Runs as a non-root user (django-user) for security.
+#
+# Security practices:
+#   - Non-root user via groupadd and useradd with explicit chown on /app
+#   - No secrets baked into the image — injected at runtime via environment variables
+#   - --no-cache-dir keeps the builder stage lean
+#
+# Runtime:
+#   Gunicorn serves the Django app on port 8000
+#   Entry point: config.wsgi:application
+# =============================================================================
+
 # Use an official Python runtime as a parent image
 FROM python:3.10 AS builder
 
@@ -38,4 +62,3 @@ EXPOSE 8000
 
 # Run the application using Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
-
