@@ -4,9 +4,11 @@
 # This module provisions IAM roles and policies for ECS Fargate
 #
 # Resources created:
-#   - ECS Task Execution Role — used by ECS to bootstrap the container
-#                               (pull image from ECR, create CloudWatch log streams)
-#                               Attached policy: AmazonECSTaskExecutionRolePolicy (AWS managed)
+# #   - ECS Task Execution Role — used by ECS to bootstrap the container
+#                               (pull image from ECR, create CloudWatch log streams,
+#                               fetch secrets from Secrets Manager at container startup)
+#                               Attached policies: AmazonECSTaskExecutionRolePolicy (AWS managed),
+#                                                  custom secrets-manager-policy
 #
 #   - ECS Task Role           — used by the Django app at runtime
 #                               (fetch secrets from Secrets Manager)
@@ -85,4 +87,11 @@ resource "aws_iam_policy" "secrets-manager-policy" {
 resource "aws_iam_role_policy_attachment" "task-role-attachment" {
     role = aws_iam_role.ecs-task-role.name
     policy_arn = aws_iam_policy.secrets-manager-policy.arn
+}
+
+# Attach the custom Secrets Manager policy to the ECS execution role
+# Required for ECS to fetch secrets from Secrets Manager at container startup
+resource "aws_iam_role_policy_attachment" "execution-role-secrets-attachment" {
+  role       = aws_iam_role.ecs-execution-role.name
+  policy_arn = aws_iam_policy.secrets-manager-policy.arn
 }
